@@ -1,0 +1,130 @@
+<div class="card p-4 glass-card sticky-top" style="top: 20px;">
+
+    {% if error_msg %}
+    <div class="alert alert-danger py-2 small border-0 glass-card mb-3 text-white"
+         style="background: rgba(220, 38, 38, 0.3) !important; border-left: 4px solid #dc2626;">
+        {{ error_msg }}
+    </div>
+    {% endif %}
+
+    <h5 class="fw-bold text-primary mb-4">
+        {{ 'MODIFICAR REGISTRO' if edit_cliente else 'GESTIÓN DE CLIENTE' }}
+    </h5>
+    
+    <form action="{{ url_for('clientes.guardar_cliente') }}" method="POST">
+
+        <input type="hidden" name="id" value="{{ edit_cliente.id if edit_cliente else '' }}">
+        
+        {% set campos = [
+            ('n_tarjeta','N° Tarjeta'), ('n_solicitud','N° Solicitud'), 
+            ('nombre_completo','Nombre y Apellido'), ('zona','Zona / Barrio'),
+            ('direccion','Domicilio Completo'), ('dni','DNI'), 
+            ('telefono','Teléfono / WhatsApp'), ('referencia','Referencia')
+        ] %}
+        
+        {% for key, label in campos %}
+        <div class="mb-2 position-relative">
+            <label class="small fw-bold opacity-50 mb-1">{{ label }}</label>
+            
+            {% if key == 'zona' %}
+                <select name="{{ key }}" id="in-{{ key }}" class="form-select form-select-sm pe-5" style="background: #121212; border: 1px solid #222; color: #fff;">
+                    <option value="" {% if not edit_cliente or not edit_cliente.zona %}selected{% endif %}>Seleccionar zona...</option>
+                    <option value="Bosques" {% if edit_cliente and edit_cliente.zona and edit_cliente.zona.strip().title() == 'Bosques' %}selected{% endif %}>Bosques</option>
+                    <option value="Quilmes" {% if edit_cliente and edit_cliente.zona and edit_cliente.zona.strip().title() == 'Quilmes' %}selected{% endif %}>Quilmes</option>
+                    <option value="812" {% if edit_cliente and edit_cliente.zona and edit_cliente.zona.strip().title() == '812' %}selected{% endif %}>812</option>
+                    <option value="Springfield" {% if edit_cliente and edit_cliente.zona and edit_cliente.zona.strip().title() == 'Springfield' %}selected{% endif %}>Springfield</option>
+                    <option value="Otras Zonas" {% if edit_cliente and edit_cliente.zona and edit_cliente.zona.strip().title() not in ['Bosques', 'Quilmes', '812', 'Springfield'] %}selected{% endif %}>Otras Zonas</option>
+                </select>
+            {% else %}
+                <input type="text"
+                       id="in-{{ key }}"
+                       name="{{ key }}"
+                       class="form-control form-control-sm pe-5"
+                       value="{{ getattr(edit_cliente, key) if edit_cliente and getattr(edit_cliente, key) != None else '' }}"
+                       {% if key == 'n_tarjeta' %}required{% endif %}>
+                
+                <button type="button"
+                        class="btn btn-sm position-absolute bottom-0 end-0 text-white opacity-25 border-0"
+                        onclick="document.getElementById('in-{{ key }}').value='';"
+                        style="height: 31px; background: transparent;">
+                    ✕
+                </button>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="small fw-bold opacity-50">Frecuencia</label>
+                <select name="frecuencia_pago" class="form-select form-select-sm">
+                    <option value="Semanal" {{ 'selected' if edit_cliente and edit_cliente.frecuencia_pago == 'Semanal' }}>Semanal</option>
+                    <option value="Quincenal" {{ 'selected' if edit_cliente and edit_cliente.frecuencia_pago == 'Quincenal' }}>Quincenal</option>
+                    <option value="Mensual" {{ 'selected' if edit_cliente and edit_cliente.frecuencia_pago == 'Mensual' }}>Mensual</option>
+                </select>
+            </div>
+            <div class="col-6">
+                <label class="small fw-bold opacity-50">Fecha Venta</label>
+                <input type="date"
+                       name="f_de_venta"
+                       class="form-control form-control-sm"
+                       value="{{ edit_cliente.f_de_venta if edit_cliente else now_date_venta }}">
+            </div>
+        </div>
+
+        <div class="mb-2 position-relative">
+            <label class="small fw-bold opacity-50">Artículo (Separa con /)</label>
+            <input type="text"
+                   id="in-articulo"
+                   name="articulo"
+                   class="form-control form-control-sm pe-5"
+                   value="{{ edit_cliente.articulo if edit_cliente else '' }}">
+            
+            <button type="button"
+                    class="btn btn-sm position-absolute bottom-0 end-0 text-white opacity-25 border-0"
+                    onclick="document.getElementById('in-articulo').value='';"
+                    style="height: 31px; background: transparent;">
+                ✕
+            </button>
+        </div>
+        
+        <div class="mb-3">
+            <label class="small fw-bold opacity-50">Condición de Venta</label>
+            <input type="text"
+                   name="cond_de_venta"
+                   class="form-control form-control-sm"
+                   placeholder="Ej: 8 de 5000"
+                   value="{{ edit_cliente.cond_de_venta if edit_cliente else '' }}">
+        </div>
+
+        <div class="mb-4">
+            <label class="small text-warning mb-1">
+                Entrega Inicial / 1ra Cuota
+            </label>
+            <div class="position-relative">
+                <input type="text" 
+                       name="entrega_inicial" 
+                       class="form-control form-control-sm text-warning fw-bold ps-2 pe-4"
+                       placeholder="Ej: 5000 / 0"
+                       value="{{ entrega_inicial_valor if entrega_inicial_valor else '' }}"
+                       style="background: rgba(255, 193, 7, 0.05); border-color: #ffc107;">
+                
+                <button type="button" 
+                        class="btn btn-sm btn-link text-secondary position-absolute top-50 end-0 translate-middle-y text-decoration-none"
+                        style="font-size: 0.7rem;"
+                        onclick="this.previousElementSibling.value=''">
+                    ✕
+                </button>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100 fw-bold py-2">
+            {{ 'CONFIRMAR' if edit_cliente else 'GUARDAR' }}
+        </button>
+
+        {% if edit_cliente %}
+        <a href="{{ url_for('clientes.clientes') }}" class="btn btn-link btn-sm w-100 text-white mt-2 opacity-50 text-decoration-none">
+            CANCELAR
+        </a>
+        {% endif %}
+    </form>
+</div>

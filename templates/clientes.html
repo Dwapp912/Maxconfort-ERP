@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <title>Clientes - Maxconfort</title>
+
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        body { 
+            background-color: #080808; 
+            color: #fff; 
+            font-size: 0.85rem; 
+            overflow-x: hidden; 
+        }
+
+        .glass-card { 
+            background: rgba(255, 255, 255, 0.02) !important; 
+            backdrop-filter: blur(15px); 
+            border: 1px solid rgba(255, 255, 255, 0.05); 
+            border-radius: 25px; 
+        }
+
+        .table-responsive::-webkit-scrollbar { height: 12px; width: 12px; }
+        .table-responsive::-webkit-scrollbar-thumb { 
+            background: #222; 
+            border-radius: 10px; 
+            border: 3px solid #080808; 
+        }
+
+        .form-control, .form-select { 
+            background: #121212; 
+            border: 1px solid #222; 
+            color: #fff; 
+            border-radius: 10px; 
+        }
+
+        .form-control:focus { 
+            background: #181818; 
+            border-color: #00a8ff; 
+            color: #fff; 
+            box-shadow: none; 
+        }
+
+        .table { --bs-table-bg: transparent; color: #fff; }
+        tr { border-bottom: 1px solid rgba(255,255,255,0.03); }
+
+        .sticky-header { 
+            position: sticky; 
+            top: 0; 
+            background: #080808; 
+            z-index: 10; 
+        }
+
+        .sticky-header th { 
+            position: sticky; 
+            top: 0; 
+            background: #121212 !important;
+            z-index: 10; 
+            border-bottom: 2px solid #222;
+        }
+
+        #tablaClientes td { 
+            background: transparent !important; 
+            color: #e2e8f0 !important; 
+        }
+
+        tr:hover td { 
+            background: rgba(37, 99, 235, 0.15) !important; 
+            color: #fff !important; 
+        }
+
+        .position-relative .btn-sm { height: 31px; }
+    </style>
+</head>
+
+<body class="container-fluid py-4">
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="position-fixed top-0 start-50 translate-middle-x mt-3" style="z-index: 1060; width: 90%; max-width: 600px;">
+          {% for message in messages %}
+            <div class="alert alert-dismissible fade show border-0 glass-card text-white py-3 mb-2 shadow-lg"
+                 role="alert"
+                 style="background: rgba(255, 193, 7, 0.2) !important; border-left: 5px solid #ffc107 !important;">
+              {{ message }}
+              <button type="button" class="btn-close btn-close-white" onclick="this.parentElement.remove()"></button>
+            </div> 
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="modal fade" id="modalTarjeta" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div id="contenidoModal" class="modal-content glass-card border-0">
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+
+        <div class="col-md-3" id="contenedor-formulario">
+            {% include 'fragmento_form.html' %}
+        </div>
+
+        <div class="col-md-9">
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+
+                <div class="d-flex gap-2 mb-3">
+                    <select id="filtroMes" class="form-select bg-dark text-white border-secondary" style="max-width: 250px;" onchange="filtrarClientesHibrido()">
+                        <option value="">Todas las ventas (Sin filtro)</option>
+                        {% for valor, texto in meses_dict.items() %}
+                            <option value="{{ valor }}">{{ texto }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <select id="filtroZona" class="form-select bg-dark text-white border-secondary" style="max-width: 250px;" onchange="filtrarClientesHibrido()">
+                        <option value="">Todas las zonas (Sin filtro)</option>
+                        {% for z in zonas_filtro %}
+                            <option value="{{ z|lower }}">{{ z }}</option>
+                        {% endfor %}
+                    </select>
+                    
+                    <button class="btn btn-outline-danger px-3" onclick="document.getElementById('filtroMes').value=''; document.getElementById('filtroZona').value=''; filtrarClientesHibrido();">
+                        Quitar Filtros
+                    </button>
+                </div>
+
+                <div class="position-relative w-50">
+                    <input type="text" id="buscador"
+                           class="form-control form-control-sm pe-5"
+                           placeholder="🔍 Buscar por cualquier campo...">
+                    <button type="button"
+                            class="btn btn-sm position-absolute top-50 end-0 translate-middle-y text-white opacity-50"
+                            onclick="document.getElementById('buscador').value=''; document.getElementById('buscador').dispatchEvent(new Event('keyup'));">
+                        ✕
+                    </button>
+                </div>
+
+                <div class="d-flex gap-2 align-items-center">
+
+                    <form action="{{ url_for('clientes.importar_clientes') }}" 
+                          method="POST" 
+                          enctype="multipart/form-data"
+                          class="d-flex align-items-center bg-dark border border-secondary rounded overflow-hidden">
+                        
+                        <input type="file" name="file" id="fileInput" accept=".xlsx, .xls, .csv" required
+                               style="display: none;"
+                               onchange="document.getElementById('fileNameSpan').innerText = this.files[0].name">
+
+                        <button type="button"
+                                class="btn btn-dark btn-sm border-0"
+                                onclick="document.getElementById('fileInput').click()">
+                            SELECCIONAR
+                        </button>
+
+                        <span id="fileNameSpan" class="small px-2 opacity-50 text-truncate" style="max-width: 120px;"></span>
+
+                        <button type="submit" class="btn btn-success btn-sm fw-bold border-0 rounded-0">
+                            IMPORTAR
+                        </button>
+                    </form>
+
+                    <a href="{{ url_for('clientes.exportar') }}" class="btn btn-outline-light btn-sm">
+                        Exportar
+                    </a>
+
+                    <a href="{{ url_for('clientes.finalizados') }}" class="btn btn-primary btn-sm">
+                        Finalizados
+                    </a>
+
+                    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
+                        Menú
+                    </a>
+
+                    <button type="button"
+                            class="btn btn-outline-danger btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#confirmarBorradoTotal">
+                        BORRAR TODO
+                    </button>
+
+                    <form action="/clientes/reestablecer" method="POST" class="d-inline">
+                        <button type="submit"
+                                class="btn btn-outline-warning btn-sm"
+                                onclick="return confirm('¿Reestablecer desde el último backup?')">
+                            REESTABLECER ÚLTIMO
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-3 mb-3">
+                <div class="glass-card px-3 py-1 text-white border border-primary">
+                    <small class="opacity-50 fw-bold">CLIENTES TOTALES:</small>
+                    <span class="fs-5 fw-bold text-primary">{{ cantidad_total }}</span>
+                </div>
+            </div>
+
+            <div class="table-responsive glass-card" style="max-height: 75vh; overflow: auto;">
+
+                <table class="table table-hover mb-0 align-middle text-nowrap" id="tablaClientes" style="min-width: 1700px;">
+                    <thead>
+                        <tr class="sticky-header text-uppercase small opacity-50">
+                            <th>Tarjeta</th>
+                            <th>Solicitud</th>
+                            <th>Nombre Completo</th>
+                            <th>Dirección</th>
+                            <th>WhatsApp</th>
+                            <th>DNI</th>
+                            <th>Zona</th>
+                            <th>Artículo</th>
+                            <th>Fecha Venta</th>
+                            <th>Frecuencia</th>
+                            <th>Condición de Venta</th>
+                            <th class="text-center">Tarjeta</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cliente in clientes %}
+                        <tr style="cursor: pointer;" 
+                            hx-get="{{ url_for('clientes.formulario_cliente', edit=cliente.id) }}" 
+                            hx-target="#contenedor-formulario">
+                            
+                            <td class="fw-bold">{{ cliente.n_tarjeta }}</td>
+                            <td class="text-primary fw-bold">{{ cliente.n_solicitud }}</td>
+                            <td class="fw-bold fs-6">{{ cliente.nombre_completo }}</td>
+                            
+                            <td class="small opacity-75">{{ cliente.direccion|replace('nan', '-') }}</td>
+                            <td>{{ cliente.telefono|replace('nan', '-') }}</td>
+                            <td>{{ cliente.dni|replace('nan', '-') }}</td>
+                            <td>{{ cliente.zona|replace('nan', '-') }}</td>
+                            
+                            <td class="text-info">{{ cliente.articulo }}</td>
+                            <td>{{ cliente.f_de_venta }}</td>
+                            
+                            <td>
+                                {% if cliente.frecuencia_pago %}
+                                    <span class="badge bg-dark border border-secondary text-white">
+                                        {{ cliente.frecuencia_pago }}
+                                    </span>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+
+                            <td class="small opacity-75">{{ cliente.cond_de_venta }}</td>
+                            
+                            <td class="text-center">
+                                <a href="https://wa.me/{{ cliente.telefono|replace(' ', '')|replace('-', '') }}"
+                                   target="_blank" class="btn btn-sm btn-outline-success border-0" onclick="event.stopPropagation()">
+                                    <i class="fab fa-whatsapp"></i>
+                                </a>
+
+                                <button hx-get="{{ url_for('clientes.abrir_tarjeta', cliente_id=cliente.id) }}" 
+                                        hx-target="#contenidoModal" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#modalTarjeta" 
+                                        class="btn btn-warning btn-sm fw-bold px-3"
+                                        onclick="event.stopPropagation()">
+                                    REVISAR
+                                </button>
+
+                                <button hx-delete="{{ url_for('clientes.borrar_cliente', id=cliente.id) }}" 
+                                        hx-target="closest tr" 
+                                        hx-confirm="¿Borrar?"
+                                        class="btn btn-link text-danger p-0 ms-2 border-0"
+                                        onclick="event.stopPropagation()">
+                                    🗑️
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('buscador').addEventListener('keyup', function() {
+            let f = this.value.toLowerCase();
+            document.querySelectorAll('#tablaClientes tbody tr').forEach(r => {
+                r.style.display = r.innerText.toLowerCase().includes(f) ? '' : 'none';
+            });
+        });
+    </script>
+
+    <script>
+        document.body.addEventListener('clienteEliminado', function() {
+            const contador = document.querySelector('.fs-5.fw-bold.text-primary');
+            if (contador) {
+                let valor = parseInt(contador.innerText);
+                contador.innerText = valor - 1;
+            }
+        });
+    </script>
+
+    <script>
+        function filtrarClientesHibrido() {
+            let mes = document.getElementById('filtroMes').value;
+            let zona = document.getElementById('filtroZona').value.toLowerCase();
+            let filas = document.querySelectorAll('#tablaClientes tbody tr');
+
+            filas.forEach(fila => {
+                let textoFila = fila.innerText.toLowerCase();
+                
+                // La columna de zona es la número 7 en tu tabla
+                let celdaZona = fila.querySelector('td:nth-child(7)');
+                let textoZona = celdaZona ? celdaZona.innerText.toLowerCase().trim() : '';
+                
+                let cumpleMes = (mes === "" || textoFila.includes(mes.toLowerCase()));
+                
+                let cumpleZona = false;
+                if (zona === "") {
+                    cumpleZona = true;
+                } else if (zona === "otras zonas") {
+                    cumpleZona = !['bosques', 'quilmes', '812', 'springfield'].includes(textoZona);
+                } else {
+                    cumpleZona = (textoZona === zona);
+                }
+
+                if (cumpleMes && cumpleZona) {
+                    fila.style.display = "";
+                } else {
+                    fila.style.display = "none";
+                }
+            });
+        }
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>
